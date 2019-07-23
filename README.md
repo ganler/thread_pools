@@ -35,6 +35,13 @@ However, I myself design the growing strategy of the dynamic pool. For a `dpool(
 - The number of idle threads are no more than I(Set by the user);
 - Create J threads when constructing.(Please make sure: J <= I && I < K && K > 0, or there will be a `std::logic_error`)
 
+## Advantages
+
+- **Header-only**: Just move the .hpp file you to ur project and run.
+- **Easy to use**: Just 2 API: Constructor and enqueue.
+- **Easy to learn**: I tried to use lines as few as possible to make my code concise. Not only have I added some significant comments in the code, but I've drawn a figure to show u how I designed the dynamic pool as well. Good for guys who want to learn from my code.
+- **High performance**: The results of the benchmark have shown this.
+
 ## Benchmark
 
 ```shell
@@ -55,3 +62,4 @@ Copy the output python script and run it. You can see the results.
 - Thread pool that holds fixed kind of functions. (Reduce dynamic allocation when std::function<void()> SOO cannot work)
 - Replace shared_ptr<std::packaged_task<...>> with exception-safety wrapped raw pointer.
 - Lock-free thread pool.
+- Comparision with other libraries.
