@@ -19,14 +19,14 @@ int main()
 
 ## Introduction
 
-In the last 2 days, I implemented 3 kind of thread pool:
+In the last 2 days, I implemented 3 kinds of thread pools:
 - **thread_pools::spool<Sz>**: Static pool which holds fixed number of threads in std::array<std::thread, Sz>.
 - **thread_pools::pool**: Default pool which holds fixed number of threads in std::vector<std::thread>.
 - **thread_pools::dpool**: Dynamic pool which holds unfixed number of threads in std::unordered_map<thread_index, std::thread>(This is very efficient).
 
-These kinds of pools can be qualified with different tasks according to ur situation.
+These kinds of pools can be qualified with different tasks according to user's specific situations.
 
-The `spool` and `pool` are nearly the same as the only difference of them is that they use different container.
+The `spool` and `pool` are nearly the same, as their only difference is that they use different containers.
 
 However, I myself design the growing strategy of the dynamic pool. For a `dpool(J, I, K)`:
 
@@ -39,19 +39,19 @@ However, I myself design the growing strategy of the dynamic pool. For a `dpool(
 
 ```shell
 mkdir build && cd build
-cmake .. && ./thread_pools
+cmake .. && make -j4 && ./thread_pools
 ```
 
 Copy the output python script and run it. You can see the results.
 (Note that each task cost 10ms. For each pool, it can at most create `psize` threads to finish `mission_sz` tasks.)
 ![](images/benchmark.png)
 
-## How the dynamic pool is designed by me
+## How I designed the dynamic pool
 
 ![](images/thread_theory.png)
 
 ## TODOS
 
-- Thread pool that hold fixed kind of functions. (Reduce dynamic allocation when std::function<void()> cannot work)
-- Replace shared_ptr<std::packaged_task<...>> with raw pointer of exception-safety.
+- Thread pool that holds fixed kind of functions. (Reduce dynamic allocation when std::function<void()> SOO cannot work)
+- Replace shared_ptr<std::packaged_task<...>> with exception-safety wrapped raw pointer.
 - Lock-free thread pool.
