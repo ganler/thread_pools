@@ -55,15 +55,27 @@ cmake .. && make -j4 && ./thread_pools
 
 Copy the output python script and run it. You can see the results.
 (Note that each task cost 10ms. For each pool, it can at most create `psize` threads to finish `mission_sz` tasks.)
+
 ![](images/benchmark.png)
 
 ## How I designed the dynamic pool
 
 ![](images/thread_theory.png)
 
+## Task and pointers
+
+For most thread pool library, they use `std::shared_ptr` pointer to manage the `std::packaged_task<...>`. This is not efficient as it allocation more memory for 2 atomic counter. And C++ standard made old C++ versions(C++11 and former C++14)'s unique_ptr not compile when enqueuing such tasks. Hence I decided to use raw pointers with some exception code to boost the performance.
+
+After removing the shared_ptr. The performance has been boosted by about 20%~30%.
+
+See my comments on `spool::enqueue` in static_pool.hpp for more details.
+
+Old shared_ptr version's performance:
+
+![](images/shared_ptr_benchmark.png)
+
 ## TODOS
 
 - Thread pool that holds fixed kind of functions. (Reduce dynamic allocation when std::function<void()> SOO cannot work)
-- Replace shared_ptr<std::packaged_task<...>> with exception-safety wrapped raw pointer.
 - Lock-free thread pool.
 - Comparision with other libraries.

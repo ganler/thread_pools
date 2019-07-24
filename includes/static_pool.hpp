@@ -61,11 +61,15 @@ template <std::size_t Sz> template <typename Func, typename ... Args>
 auto spool<Sz>::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
-    auto task = std::make_shared< std::packaged_task<return_type()> >(  // TODO: Use raw ptr with exception to boost performance.
-        std::bind(std::forward<Func>(f), std::forward<Args>(args)...)); // Just use raw ptr if you don't care exception.
+// >>> [Original std::shared_ptr version]. Actually in Cpp14 new standard we can use std::unique_ptr.
+// But some new compilers are still using old libc++ version.  So I used raw ptr to make my code more compatible.
+//    auto task = std::make_shared< std::packaged_task<return_type()> >(
+//      std::bind(std::forward<Func>(f), std::forward<Args>(args)...)); // Just use raw ptr if you don't care exception.
+    std::packaged_task<return_type()>* task = nullptr;
+    try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);
     auto result = task->get_future();
     std::unique_lock<std::mutex> lock(m_mu);
-    m_task_queue.emplace( [task](){ (*task)(); } ); // The benefit of lambda: you get more chance to inline the code.
+    m_task_queue.emplace( [task](){ (*task)(); delete task; } ); // The benefit of lambda: get more chance to inline.
     m_cv.notify_one();
     return result;
 }

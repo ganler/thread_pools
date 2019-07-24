@@ -92,5 +92,4 @@ int main() {
     ADD_PYLINE("plt.legend(['spool', 'pool', 'dpool'])")
 
     out << PY_PLOT_SCRIPT;
-
 }

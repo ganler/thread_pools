@@ -121,15 +121,14 @@ template <std::size_t Sz, typename Func, typename ... Args>
 auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
-    auto task = std::make_shared< std::packaged_task<return_type()> >(
-            std::bind(std::forward<Func>(f), std::forward<Args>(args)...));
+    std::packaged_task<return_type()>* task = nullptr; // Why raw pointer? See comments in static_pool.hpp's enqueue().
+    try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);
     auto result = task->get_future();
-    GANLER_DEBUG_DETAIL(current_threads())
     if(m_idle_num == 0)
         for (int i = 0; i < std::min(Sz, m_max_idle_size); ++i)
             make_worker();
     std::unique_lock<std::mutex> lock(m_mu);
-    m_task_queue.emplace([task](){ (*task)(); });
+    m_task_queue.emplace([task](){ (*task)(); delete task; });
     m_cv.notify_one();
     return result;
 }
@@ -139,8 +138,8 @@ auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::resu
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
     static std::size_t queue_size = 0;
-    auto task = std::make_shared< std::packaged_task<return_type()> >(
-            std::bind(std::forward<Func>(f), std::forward<Args>(args)...));
+    std::packaged_task<return_type()>* task = nullptr; // Why raw pointer? See comments in static_pool.hpp's enqueue().
+    try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);
     auto result = task->get_future();
     GANLER_DEBUG_DETAIL(current_threads())
     if(m_idle_num == 0)
