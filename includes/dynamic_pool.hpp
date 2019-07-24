@@ -146,7 +146,7 @@ auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::resu
         for (int i = 0; i < std::min(std::max(1ul, queue_size), m_max_idle_size); ++i)
             make_worker();
     std::unique_lock<std::mutex> lock(m_mu);
-    m_task_queue.emplace([task](){ (*task)(); });
+    m_task_queue.emplace([task](){ (*task)(); delete task; });
     queue_size = m_task_queue.size();
     m_cv.notify_one();
     return result;
