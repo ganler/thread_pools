@@ -126,7 +126,7 @@ auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::resu
     auto result = task->get_future();
     GANLER_DEBUG_DETAIL(current_threads())
     if(m_idle_num == 0)
-        for (int i = 0; i < std::max(Sz, m_max_idle_size); ++i)
+        for (int i = 0; i < std::min(Sz, m_max_idle_size); ++i)
             make_worker();
     std::unique_lock<std::mutex> lock(m_mu);
     m_task_queue.emplace([task](){ (*task)(); });
