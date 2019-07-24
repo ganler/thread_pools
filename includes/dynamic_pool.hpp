@@ -37,6 +37,7 @@ private:
     using                        task_type       = std::function<void()>;
     using                        thread_index    = std::thread::id;
     using                        thread_map      = std::unordered_map<thread_index, std::thread>;
+
     const std::size_t            m_max_size;
     const std::size_t            m_max_idle_size;
     std::atomic<std::size_t>     m_idle_num;
@@ -151,6 +152,5 @@ auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::resu
     m_cv.notify_one();
     return result;
 }
-
 
 }

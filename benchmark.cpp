@@ -15,6 +15,7 @@
                           out << "\b]\n"; }
 #define PYPLOT(X,Y)      {out << "plt.plot(" << #X << ", " << #Y << ")\n"; }
 #define ADD_PYLINE(X)    {out << X << '\n';}
+
 int main() {
     // x*y = 10000
     // x/y = 10
