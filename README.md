@@ -14,7 +14,7 @@ int main()
 {
     thread_pools::spool<10> pool;
     // thread_pools::pool pool(10);  // default pool
-    // thread_pools::dpool dpool;    // dynamic pool
+    // thread_pools::dpool pool;     // dynamic pool
 
     auto result = pool.enqueue([]() { return 2333; });
     std::cout << result.get() << '\n';
