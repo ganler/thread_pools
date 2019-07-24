@@ -1,5 +1,9 @@
 # Thread Pool Library
 
+![](https://img.shields.io/badge/language-c++-orange.svg) 
+![](https://img.shields.io/github/stars/ganler/thread_pools.svg?style=social)
+![](https://img.shields.io/github/languages/code-size/ganler/thread_pools.svg)
+
 ## Quick Start
 
 ```c++
