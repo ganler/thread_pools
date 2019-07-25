@@ -54,11 +54,11 @@ cmake .. && make -j4 && ./thread_pools
 ```
 
 Copy the output python script and run it. You can see the results.
-(Note that each task cost 10ms. For each pool, it can at most create `psize` threads to finish `mission_sz` tasks.)
+(Note that each task cost 1m. For each pool, it can at most create `psize` threads to finish `mission_sz` tasks.)
 
-![](images/benchmark.png)
+![](images/benchmark-1ms.png)
 
-## How I designed the dynamic pool
+## How I Designed the Dynamic Pool
 
 ![](images/thread_theory.png)
 
@@ -73,6 +73,26 @@ See my comments on `spool::enqueue` in static_pool.hpp for more details.
 Old shared_ptr version's performance:
 
 ![](images/shared_ptr_benchmark.png)
+
+## When Should You Use the Dynamic Pool
+
+Mainly 2 situations:
+
+- The amount of tasks are usually unknown.
+- Your task running time is short(less than 3ms).
+
+> This comes to the benefits of my dynamic pool:
+> `dpool` can be very fast when each task's run time is short, as `dpool` create and destroy threads very fast.
+> `dpool` can also be very fast when `task_num << max_size_of_the_pool`, as it will dynamically change the thread size.
+
+Note that: **All the three pools will be the nearly same performance level** when your task scale is:
+
+- Each task cost a relative long time(much longer than creating and destroying the threads).
+- Your amount of task is much bigger than that of your threads.
+
+To show this, I tested their performance where each task cost 10ms(bigger than original 1ms):
+
+![](images/benchmark.png)
 
 ## TODOS
 

@@ -56,13 +56,7 @@ template <typename Func, typename ... Args>
 auto pool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
-    std::packaged_task<return_type()>* task = nullptr; // Why raw pointer? See comments in static_pool.hpp's enqueue().
-    try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);
-    auto result = task->get_future();
-    std::unique_lock<std::mutex> lock(m_mu);
-    m_task_queue.emplace( [task](){ (*task)(); delete task; } ); // The benefit of lambda: get more chance to inline.
-    m_cv.notify_one();
-    return result;
+    MAKE_TASK()
 }
 
 inline pool::~pool()

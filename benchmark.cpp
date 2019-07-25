@@ -26,12 +26,14 @@ int main() {
 
     constexpr std::size_t psize = 1000;
 //    constexpr std::size_t mission_sz = 1;    // 10, 100, 1000, 10000, 100000
-    constexpr std::size_t execute_time = 10; // milli.
+    constexpr std::size_t execute_time = 1; // milli.
     constexpr std::size_t scale = 6;
 
     std::vector<double> answers[3];
 
     auto bench = [&](std::size_t mission_sz){
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
         std::cout << ">>> Bench : mission size = " << mission_sz << '\n';
         {   // TEST for thread_pools::spool
             auto beg = std::chrono::steady_clock::now();
@@ -44,6 +46,8 @@ int main() {
             std::cout << "[STATIC POOL TEST] "  << psize << " threads execute time: " << answers[0].back() << " ms\n";
         }
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
         {   // TEST for thread_pools::pool
             auto beg = std::chrono::steady_clock::now();
             {
@@ -55,10 +59,12 @@ int main() {
             std::cout << "[DEFAULT POOL TEST] "  << psize << " threads execute time: " << answers[1].back() << " ms\n";
         }
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
         {   // TEST for thread_pools::dpool
             auto beg = std::chrono::steady_clock::now();
             {
-                thread_pools::dpool pool(0, psize/2, psize);
+                thread_pools::dpool pool(psize); // max_pool_size
                 for (int i = 0; i < mission_sz; ++i)
                     pool.enqueue([execute_time](){ std::this_thread::sleep_for(std::chrono::milliseconds(execute_time)); });
             }

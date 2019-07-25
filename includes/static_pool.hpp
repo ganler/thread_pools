@@ -65,13 +65,7 @@ auto spool<Sz>::enqueue(Func &&f, Args &&... args) -> std::future<typename std::
 // But some new compilers are still using old libc++ version.  So I used raw ptr to make my code more compatible.
 //    auto task = std::make_shared< std::packaged_task<return_type()> >(
 //      std::bind(std::forward<Func>(f), std::forward<Args>(args)...)); // Just use raw ptr if you don't care exception.
-    std::packaged_task<return_type()>* task = nullptr;
-    try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);
-    auto result = task->get_future();
-    std::unique_lock<std::mutex> lock(m_mu);
-    m_task_queue.emplace( [task](){ (*task)(); delete task; } ); // The benefit of lambda: get more chance to inline.
-    m_cv.notify_one();
-    return result;
+    MAKE_TASK()
 }
 
 template <std::size_t Sz> inline spool<Sz>::~spool()

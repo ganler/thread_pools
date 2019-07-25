@@ -25,13 +25,22 @@ namespace thread_pools
 class dpool final
 {
 public:
-    dpool(std::size_t = no_input, std::size_t = no_input, std::size_t = std::thread::hardware_concurrency());
+    dpool(std::size_t = 2 + std::thread::hardware_concurrency(), std::size_t = no_input);
     ~dpool();
     template <std::size_t Sz, typename Func, typename ... Args>
     auto enqueue(Func&& f, Args&& ... args) -> std::future<typename std::result_of<Func(Args...)>::type>;
     template <typename Func, typename ... Args>
     auto enqueue(Func&& f, Args&& ... args) -> std::future<typename std::result_of<Func(Args...)>::type>;
-    std::size_t current_threads() noexcept;
+    std::size_t current_threads();
+    std::size_t current_tasks();
+#ifdef GANLER_DEBUG
+    void unsafe_view()     noexcept {
+        std::cout << "----------------------------------------\n"
+                  << "Queue size:" << m_task_queue.size() << '\n'
+                  << "Thread size:" << m_workers.size()   << '\n'
+                  << "Idle threads:" << m_idle_num << '\n';
+    }
+#endif
 private:
     static constexpr std::size_t no_input        = std::numeric_limits<std::size_t>::max();
     using                        task_type       = std::function<void()>;
@@ -40,12 +49,12 @@ private:
 
     const std::size_t            m_max_size;
     const std::size_t            m_max_idle_size;
-    std::atomic<std::size_t>     m_idle_num;
+    std::atomic<std::size_t>     m_idle_num      { 0 };
     std::mutex                   m_mu;
     std::condition_variable      m_cv;
     thread_map                   m_workers;
     std::queue<task_type>        m_task_queue;
-    bool                         m_shutdown      = false;
+    std::atomic<bool>            m_shutdown      { false };
 
     // Helper
     void make_worker();                          // Called by locked function.
@@ -54,28 +63,28 @@ private:
 
 
 // Implementation
-inline std::size_t dpool::current_threads() noexcept
+inline std::size_t dpool::current_threads()
 {
     std::lock_guard<std::mutex> lock(m_mu);
     return m_workers.size();
 }
 
-inline dpool::dpool(std::size_t pre_alloc, std::size_t max_idle_sz, std::size_t max_sz)
+inline std::size_t dpool::current_tasks()
+{
+    std::lock_guard<std::mutex> lock(m_mu);
+    return m_task_queue.size();
+}
+
+inline dpool::dpool(std::size_t max_sz, std::size_t max_idle_sz)
 : m_max_size(max_sz), m_max_idle_size( max_idle_sz == no_input ? max_sz / 2 : max_idle_sz)
 {
-    pre_alloc = (pre_alloc == no_input) ? m_max_idle_size : pre_alloc;
-    if(pre_alloc > m_max_idle_size || m_max_idle_size >= m_max_size || m_max_size == 0)
-        throw std::logic_error("Please make sure: pre_alloc <= max_idle_sz && max_idle_sz < max_size && max_sz > 0\n");
-    m_workers.reserve(pre_alloc);
-    for (int i = 0; i < pre_alloc; ++i)
-        make_worker();
-    m_idle_num = pre_alloc;
+    if(m_max_idle_size > m_max_size || m_max_size == 0)
+        throw std::logic_error("Please make sure: max_idle_sz <= max_size && max_sz > 0\n");
 }
 
 inline void dpool::destroy_worker(thread_index index)
 {
-    m_task_queue.push([this, index](){
-        GANLER_DEBUG_DETAIL(m_workers[index].joinable())
+    m_task_queue.emplace([this, index](){
         if(!m_shutdown)
         {
             m_workers[index].join();
@@ -95,6 +104,7 @@ inline void dpool::make_worker()
             if(m_idle_num > m_max_idle_size and !m_shutdown)
             {// Cut the idle threads.
                 destroy_worker(std::this_thread::get_id());
+                --m_idle_num;
                 return;
             }
             --m_idle_num;
@@ -103,17 +113,14 @@ inline void dpool::make_worker()
             lock.unlock(); // LOCK IS OVER.
             task();
             ++m_idle_num;  // ATOMIC
-        }
-    }};
+        }}};
     ++m_idle_num;
     m_workers[thread.get_id()] = std::move(thread);
 }
 
 inline dpool::~dpool()
 {
-    std::unique_lock<std::mutex> lock(m_mu);
     m_shutdown = true;
-    lock.unlock();
     m_cv.notify_all(); // TODO: If I add this code, I found it sometimes become 3x slower. Why?
     std::for_each(m_workers.begin(), m_workers.end(), [](thread_map::value_type& x){ (x.second).join(); });
 }
@@ -122,35 +129,21 @@ template <std::size_t Sz, typename Func, typename ... Args>
 auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
-    std::packaged_task<return_type()>* task = nullptr; // Why raw pointer? See comments in static_pool.hpp's enqueue().
-    try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);
-    auto result = task->get_future();
     if(m_idle_num == 0)
         for (int i = 0; i < std::min(Sz, m_max_idle_size); ++i)
             make_worker();
-    std::unique_lock<std::mutex> lock(m_mu);
-    m_task_queue.emplace([task](){ (*task)(); delete task; });
-    m_cv.notify_one();
-    return result;
+    MAKE_TASK()
 }
 
 template <typename Func, typename ... Args>
 auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
-    static std::size_t queue_size = 0;
-    std::packaged_task<return_type()>* task = nullptr; // Why raw pointer? See comments in static_pool.hpp's enqueue().
-    try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);
-    auto result = task->get_future();
-    GANLER_DEBUG_DETAIL(current_threads())
-    if(m_idle_num == 0)
-        for (int i = 0; i < std::min(std::max(1ul, queue_size), m_max_idle_size); ++i)
-            make_worker();
-    std::unique_lock<std::mutex> lock(m_mu);
-    m_task_queue.emplace([task](){ (*task)(); delete task; });
-    queue_size = m_task_queue.size();
-    m_cv.notify_one();
-    return result;
+    MAKE_TASK(
+            auto sz = std::min({m_task_queue.size(), m_max_idle_size, m_max_size - m_workers.size()});
+            if(m_idle_num == 0 and m_workers.size() < m_max_size)
+                     for (int i = 0; i < sz; ++i)
+                             make_worker();)
 }
 
 }
