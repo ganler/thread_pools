@@ -39,6 +39,60 @@ However, I myself design the growing strategy of the dynamic pool. For a `dpool(
 - The number of idle threads are no more than I(Set by the user);
 - Create J threads when constructing.(Please make sure: J <= I && I < K && K > 0, or there will be a `std::logic_error`)
 
+## APIs
+
+### Initialization
+```c++
+using thread_pools
+
+// Static pool:
+constexpr std::size_t N = 10;
+spool<N> pool;                  // N is a template parameter meaning the number of thread this pool holds.
+                                // Threads are created when construction function is called and destroied when deconstruction function is called.
+                                // Note that N must be determined before compiling.
+
+// Default pool:
+pool pool(std::thread::hardware_concurrency()); 
+                                // pool(x), x is a parameter meaning the number of thread this pool holds.
+                                // Threads are created when construction function is called and destroied when deconstruction function is called.
+                                
+
+// Dynamic pool:
+dpool(std::size_t = 2 + std::thread::hardware_concurrency(), std::size_t = no_input);
+                                // The first parameter means the `max number of threads` it can have.
+                                // The second parameter means the `max number of idle threads` it can have.
+                                // The second parameter is 1/2 of the first one by default.
+
+```
+
+### Add tasks
+
+```c++
+// For any pool.
+pool.enqueue(Func, Args...);
+                                // The parameters are just the same as that of std::bind.
+                                // See https://en.cppreference.com/w/cpp/utility/functional/bind for more details.
+
+// For dpool.
+pool.enqueue(Func, Args...);    // When there's no idle threads, increase the number of threads adaptively. 
+                                // added = std::min({m_task_queue.size(), m_max_idle_size, m_max_size - m_workers.size()})
+
+pool.enqueue<N>(Func, Args);    // When you give it a template parameter, you can add threads number linearly.
+                                // added = std::min(Sz, m_max_idle_size)
+```
+
+### Run time information
+
+```c++
+// Only for dpool
+std::size_t current_threads();  // Number of threads alive.
+std::size_t current_tasks();    // Number of tasks in the task queue.(which haven't been excuted.)
+```
+
+## How and When to Use Thread Pool to Boost Performance
+
+I highly recomment you to read [**Herb Sutter:Use Thread Pools Correctly: Keep Tasks Short and Nonblocking**](http://www.drdobbs.com/parallel/use-thread-pools-correctly-keep-tasks-sh/216500409).
+
 ## Advantages
 
 - **Header-only**: Just move the .hpp file you to ur project and run.
