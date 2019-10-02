@@ -18,11 +18,10 @@
 namespace thread_pools
 {
 
-template <std::size_t PoolSize> // TODO: Set better default value according to the architecture.
 class spool final
 {// Ref: https://github.com/progschj/ThreadPool/blob/master/ThreadPool.h
 public:
-    spool();
+    spool(std::size_t);
     ~spool();
     template <typename Func, typename ... Args>
     auto enqueue(Func &&f, Args &&... args) // For Cpp14+ -> decltype(auto).
@@ -32,33 +31,40 @@ private:
     // Use xx::function<> wrapper is not zero overhead.(See the link below)
     // https://www.boost.org/doc/libs/1_45_0/doc/html/function/misc.html#id1285061
     // https://www.boost.org/doc/libs/1_45_0/doc/html/function/faq.html#id1284915
-    using thread_container = std::array<std::thread, PoolSize>;
-    thread_container                       m_workers;
-    std::mutex                             m_mu;
+    std::mutex                             m_queue_mu;
+    std::mutex                             m_end_mu;
     std::condition_variable                m_cv;
+    std::condition_variable                m_cv_end;
     std::queue<task_type>                  m_task_queue;
+    std::atomic<int>                       m_live        {  0  };
     bool                                   m_shutdown    {false};
 };
 
 // Implementation:
-template <std::size_t Sz> inline spool<Sz>::spool()
+inline spool::spool(std::size_t sz)
 {
-    for(auto && w : m_workers)
-        w = std::thread{[this]{
-            while(true)
-            {
-                std::unique_lock<std::mutex> lock(m_mu);
+    m_live = sz;
+    for(int i=0; i<sz; ++i)
+        std::thread([this] {
+            while (true) {
+                std::unique_lock<std::mutex> lock(m_queue_mu);
                 m_cv.wait(lock, [this] { return m_shutdown or !m_task_queue.empty(); });
-                if (m_shutdown and m_task_queue.empty()) return; // Conditions to let the thread go.
+                if (m_shutdown and m_task_queue.empty()) {
+                    lock.unlock();
+                    if (--m_live == 0)
+                        m_cv_end.notify_one();
+                    return; // Conditions to let the thread go.
+                }
                 auto task = std::move(m_task_queue.front());
                 m_task_queue.pop();
                 lock.unlock();
                 task();
-            }}};
+            }
+        }).detach();
 }
 
-template <std::size_t Sz> template <typename Func, typename ... Args>
-auto spool<Sz>::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
+template <typename Func, typename ... Args>
+auto spool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
 // >>> [Original std::shared_ptr version]. Actually in Cpp14 new standard we can use std::unique_ptr.
@@ -68,13 +74,12 @@ auto spool<Sz>::enqueue(Func &&f, Args &&... args) -> std::future<typename std::
     MAKE_TASK()
 }
 
-template <std::size_t Sz> inline spool<Sz>::~spool()
+inline spool::~spool()
 {
-    std::unique_lock<std::mutex> lock(m_mu);
     m_shutdown = true;
-    lock.unlock();
     m_cv.notify_all();
-    std::for_each(m_workers.begin(), m_workers.end(), std::mem_fn(&std::thread::join));
+    std::unique_lock<std::mutex> lock(m_end_mu); // lock-free waiting is slower...
+    m_cv_end.wait(lock, [this] { return m_live.load() == 0; });
 }
 
 }

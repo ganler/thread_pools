@@ -5,7 +5,6 @@
 
 #include <dynamic_pool.hpp>
 #include <static_pool.hpp>
-#include <default_pool.hpp>
 
 /*
  * For all kinds of pools:

@@ -4,6 +4,8 @@
 ![](https://img.shields.io/github/stars/ganler/thread_pools.svg?style=social)
 ![](https://img.shields.io/github/languages/code-size/ganler/thread_pools.svg)
 
+> Note that I rewrite this library and removed all thread containers(use detached threads instead). Hence, `default_pool`(in old version) is no longer needed.
+
 ## Quick Start
 
 ```c++
@@ -13,7 +15,6 @@
 int main()
 {
     thread_pools::spool<10> pool;
-    // thread_pools::pool pool(10);  // default pool
     // thread_pools::dpool pool;     // dynamic pool
 
     auto result = pool.enqueue([]() { return 2333; });
@@ -23,14 +24,11 @@ int main()
 
 ## Introduction
 
-In the last 2 days, I implemented 3 kinds of thread pools:
-- **thread_pools::spool<Sz>**: Static pool which holds fixed number of threads in std::array<std::thread, Sz>.
-- **thread_pools::pool**: Default pool which holds fixed number of threads in std::vector<std::thread>.
-- **thread_pools::dpool**: Dynamic pool which holds unfixed number of threads in std::unordered_map<thread_index, std::thread>(This is very efficient).
+In the last 2 days, I implemented 2 kinds of thread pools:
+- **thread_pools::spool**: Static pool which holds fixed number of threads.
+- **thread_pools::dpool**: Dynamic pool which holds unfixed number of threads(This is very efficient).
 
 These kinds of pools can be qualified with different tasks according to user's specific situations.
-
-The `spool` and `pool` are nearly the same, as their only difference is that they use different containers.
 
 However, I myself design the growing strategy of the dynamic pool. For a `dpool(J, I, K)`:
 
@@ -47,15 +45,8 @@ using thread_pools
 
 // Static pool:
 constexpr std::size_t N = 10;
-spool<N> pool;                  // N is a template parameter meaning the number of thread this pool holds.
-                                // Threads are created when construction function is called and destroied when deconstruction function is called.
-                                // Note that N must be determined before compiling.
-
-// Default pool:
-pool pool(std::thread::hardware_concurrency()); 
-                                // pool(x), x is a parameter meaning the number of thread this pool holds.
-                                // Threads are created when construction function is called and destroied when deconstruction function is called.
-                                
+spool pool(N);                  // N is the number of threads this pool holds.
+                                // Threads are created when construction function is called and destroyed when deconstruction function is called.
 
 // Dynamic pool:
 dpool(std::size_t = 2 + std::thread::hardware_concurrency(), std::size_t = no_input);

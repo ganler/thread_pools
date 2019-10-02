@@ -29,7 +29,7 @@ int main() {
     constexpr std::size_t execute_time = 1; // milli.
     constexpr std::size_t scale = 6;
 
-    std::vector<double> answers[3];
+    std::vector<double> answers[2];
 
     auto bench = [&](std::size_t mission_sz){
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -38,25 +38,12 @@ int main() {
         {   // TEST for thread_pools::spool
             auto beg = std::chrono::steady_clock::now();
             {
-                thread_pools::spool<psize> pool;
+                thread_pools::spool pool(psize);
                 for (int i = 0; i < mission_sz; ++i)
                     pool.enqueue([execute_time](){ std::this_thread::sleep_for(std::chrono::milliseconds(execute_time)); });
             }
             answers[0].push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - beg).count());
             std::cout << "[STATIC POOL TEST] "  << psize << " threads execute time: " << answers[0].back() << " ms\n";
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-        {   // TEST for thread_pools::pool
-            auto beg = std::chrono::steady_clock::now();
-            {
-                thread_pools::pool pool(psize);
-                for (int i = 0; i < mission_sz; ++i)
-                    pool.enqueue([execute_time](){ std::this_thread::sleep_for(std::chrono::milliseconds(execute_time)); });
-            }
-            answers[1].push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - beg).count());
-            std::cout << "[DEFAULT POOL TEST] "  << psize << " threads execute time: " << answers[1].back() << " ms\n";
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -68,8 +55,8 @@ int main() {
                 for (int i = 0; i < mission_sz; ++i)
                     pool.enqueue([execute_time](){ std::this_thread::sleep_for(std::chrono::milliseconds(execute_time)); });
             }
-            answers[2].push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - beg).count());
-            std::cout << "[DYNAMIC POOL TEST] "  << psize << " threads execute time: " << answers[2].back() << " ms\n";
+            answers[1].push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - beg).count());
+            std::cout << "[DYNAMIC POOL TEST] "  << psize << " threads execute time: " << answers[1].back() << " ms\n";
         }
     };
 
@@ -85,18 +72,15 @@ int main() {
 
     // Generate code.
     auto& spool = answers[0];
-    auto& pool = answers[1];
-    auto& dpool = answers[2];
+    auto& dpool = answers[1];
 
     out << PY_IMPORT_SCRIPT;
     GEN_BENCH(x)
     GEN_BENCH(spool)
     PYPLOT(x, spool)
-    GEN_BENCH(pool)
-    PYPLOT(x, pool)
     GEN_BENCH(dpool)
     PYPLOT(x, dpool)
-    ADD_PYLINE("plt.legend(['spool', 'pool', 'dpool'])")
+    ADD_PYLINE("plt.legend(['spool', 'dpool'])")
 
     out << PY_PLOT_SCRIPT;
 }

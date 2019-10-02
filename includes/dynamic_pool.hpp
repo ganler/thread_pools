@@ -31,8 +31,6 @@ public:
     auto enqueue(Func&& f, Args&& ... args) -> std::future<typename std::result_of<Func(Args...)>::type>;
     template <typename Func, typename ... Args>
     auto enqueue(Func&& f, Args&& ... args) -> std::future<typename std::result_of<Func(Args...)>::type>;
-    std::size_t current_threads();
-    std::size_t current_tasks();
 #ifdef GANLER_DEBUG
     void unsafe_view()     noexcept {
         std::cout << "----------------------------------------\n"
@@ -49,12 +47,13 @@ private:
 
     const std::size_t            m_max_size;
     const std::size_t            m_max_idle_size;
-    std::atomic<std::size_t>     m_idle_num      { 0 };
-    std::mutex                   m_mu;
+    std::atomic<int>             m_idle_num      { 0 };
+    std::mutex                   m_queue_mu;
+    std::mutex                   m_map_mu;
     std::condition_variable      m_cv;
     thread_map                   m_workers;
     std::queue<task_type>        m_task_queue;
-    std::atomic<bool>            m_shutdown      { false };
+    bool                         m_shutdown      { false };
 
     // Helper
     void make_worker();                          // Called by locked function.
@@ -63,18 +62,7 @@ private:
 
 
 // Implementation
-inline std::size_t dpool::current_threads()
-{
-    std::lock_guard<std::mutex> lock(m_mu);
-    return m_workers.size();
-}
-
-inline std::size_t dpool::current_tasks()
-{
-    std::lock_guard<std::mutex> lock(m_mu);
-    return m_task_queue.size();
-}
-
+    // Init :)
 inline dpool::dpool(std::size_t max_sz, std::size_t max_idle_sz)
 : m_max_size(max_sz), m_max_idle_size( max_idle_sz == no_input ? max_sz / 2 : max_idle_sz)
 {
@@ -88,6 +76,7 @@ inline void dpool::destroy_worker(thread_index index)
         if(!m_shutdown)
         {
             m_workers[index].join();
+            std::lock_guard<std::mutex> lk(m_map_mu);
             m_workers.erase(index);
         }
     });
@@ -98,7 +87,7 @@ inline void dpool::make_worker()
     auto thread = std::thread{[this](){
         while(true)
         {
-            std::unique_lock<std::mutex> lock(m_mu);
+            std::unique_lock<std::mutex> lock(m_queue_mu);
             m_cv.wait(lock, [this](){ return m_shutdown or !m_task_queue.empty() or m_idle_num > m_max_idle_size; });
             if(m_shutdown and m_task_queue.empty()) { return; } // Game over.
             if(m_idle_num > m_max_idle_size and !m_shutdown)
@@ -121,7 +110,7 @@ inline void dpool::make_worker()
 inline dpool::~dpool()
 {
     m_shutdown = true;
-    m_cv.notify_all(); // TODO: If I add this code, I found it sometimes become 3x slower. Why?
+    m_cv.notify_all();
     std::for_each(m_workers.begin(), m_workers.end(), [](thread_map::value_type& x){ (x.second).join(); });
 }
 

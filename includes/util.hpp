@@ -8,8 +8,10 @@
     std::packaged_task<return_type()>* task = nullptr;/* Why raw pointer? See comments in static_pool.hpp's enqueue().*/\
     try_allocate(task, std::forward<Func>(f), std::forward<Args>(args)...);\
     auto result = task->get_future();\
-    std::lock_guard<std::mutex> lock(m_mu);\
-    m_task_queue.emplace([task](){ (*task)(); delete task; });\
+    {\
+        std::lock_guard<std::mutex> lock(m_queue_mu);\
+        m_task_queue.emplace([task](){ (*task)(); delete task; });\
+    }\
     X;\
     m_cv.notify_one();\
     return result;
@@ -18,8 +20,10 @@
     auto task = std::make_shared<std::packaged_task<return_type ()>>(\
         std::bind(std::forward<Func>(f), std::forward<Args>(args)...));\
     auto result = task->get_future();\
-    std::lock_guard<std::mutex> lock(m_mu);\
-    m_task_queue.emplace([task](){ (*task)();});\
+    {\
+        std::lock_guard<std::mutex> lock(m_queue_mu);\
+        m_task_queue.emplace([task](){ (*task)(); });\
+    }\
     X\
     m_cv.notify_one();\
     return result;
@@ -36,6 +40,7 @@
 #endif
 
 #include <type_traits>
+#include <functional>
 
 namespace thread_pools
 {
