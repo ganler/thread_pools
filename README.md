@@ -6,6 +6,15 @@
 
 > Note that I rewrite this library and removed all thread containers(use detached threads instead). Hence, `default_pool`(in old version) is no longer needed.
 
+> **BIRTHDAY UPDATE**
+>
+> Currently I am making a bigger optimized attempt:
+>
+> - Old version: We hold threads in some kinds of container(*Dynamic/static allocation*). We produce threads and join(*main thread's waiting*) them finally. I have to commit that what I did is kind of stupid.
+> - New version: **I dropped all kinds of containers**.(Detach them once created. Now it's ***container-free***). Okay, you may ask what if the objects(like task quue) are destoryed in the stack. Fine, let's use heap memory managed by a `std::shared_ptr`. This is brillient and low-cost(If you want accuracy, a thread-safe container is a must), as writes to atomic variables happends only when the threads is going dead(And last dying thread will destroy the sources).
+>
+> > Now I've implemented this idea on my `static_pool`(And I deprecated `default_pool` as we need no longer thread containers).  `spool` in this new version is 31.8%(see more details in benchmark section below) faster than old version(as it's more "wait-free" and memory-saving). Optimized version of `dpool` will be released later(as its logic is more complex). : ).
+
 ## Quick Start
 
 ```c++
@@ -100,6 +109,12 @@ cmake .. && make -j4 && ./thread_pools
 
 Copy the output python script and run it. You can see the results.
 (Note that each task cost 1m. For each pool, it can at most create `psize` threads to finish `mission_sz` tasks.)
+
+> Benchmark of new version. For 10000 tasks, `spool`'s performance has boosted by about **31.8%** ((2200-1500)/2200).
+
+![](images/bench-nocontainer.png)
+
+> Benchmark of old version.
 
 ![](images/benchmark-1ms.png)
 
