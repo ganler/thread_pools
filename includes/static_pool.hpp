@@ -8,9 +8,10 @@
 #include <future>
 #include <array>
 #include <queue>
-#include <algorithm>
 #include <mutex>
 #include <memory>
+#include <atomic>
+#include <algorithm>
 #include <condition_variable>
 
 #include "util.hpp"
@@ -82,6 +83,7 @@ auto spool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::resu
 inline spool::~spool()
 {
     shared_src->m_shutdown = true;
+    std::atomic_signal_fence(std::memory_order_seq_cst);
     shared_src->m_cv.notify_all();
 }
 
