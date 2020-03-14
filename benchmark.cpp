@@ -29,16 +29,16 @@ int main() {
     constexpr std::size_t execute_time = 1; // milli.
     constexpr std::size_t scale = 6;
 
-    std::vector<double> answers[2];
+    std::array<std::vector<double>, 2> answers;
 
     auto bench = [&](std::size_t mission_sz){
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
         std::cout << ">>> Bench : mission size = " << mission_sz << '\n';
-        {   // TEST for thread_pools::spool
+        {   // TEST for thread_pool::static_pool
             auto beg = std::chrono::steady_clock::now();
             {
-                thread_pools::spool pool(psize);
+                thread_pool::static_pool pool(psize); // The building time of this thread pool is little great when the thread num grows.
                 for (int i = 0; i < mission_sz; ++i)
                     pool.enqueue([execute_time](){ std::this_thread::sleep_for(std::chrono::milliseconds(execute_time)); });
             }
@@ -48,10 +48,10 @@ int main() {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-        {   // TEST for thread_pools::dpool
+        {   // TEST for thread_pool::dynamic_pool
             auto beg = std::chrono::steady_clock::now();
             {
-                thread_pools::dpool pool(psize); // max_pool_size
+                thread_pool::dynamic_pool pool(psize); // max_pool_size
                 for (int i = 0; i < mission_sz; ++i)
                     pool.enqueue([execute_time](){ std::this_thread::sleep_for(std::chrono::milliseconds(execute_time)); });
             }
@@ -80,7 +80,7 @@ int main() {
     PYPLOT(x, spool)
     GEN_BENCH(dpool)
     PYPLOT(x, dpool)
-    ADD_PYLINE("plt.legend(['spool', 'dpool'])")
+    ADD_PYLINE("plt.legend(['static_pool', 'dynamic_pool'])")
 
     out << PY_PLOT_SCRIPT;
 }

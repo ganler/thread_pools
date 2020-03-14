@@ -9,4 +9,5 @@
 /*
  * For all kinds of pools:
  * - void enqueue();
+ * - wait(); // TODO: Dynamic Pool's wait() impl.
  */

@@ -19,14 +19,14 @@
 
 #include "util.hpp"
 
-namespace thread_pools
+namespace thread_pool
 {
 
-class dpool final
+class dynamic_pool final
 {
 public:
-    dpool(std::size_t = 2 + std::thread::hardware_concurrency(), std::size_t = no_input);
-    ~dpool();
+    dynamic_pool(std::size_t = 2 + std::thread::hardware_concurrency(), std::size_t = no_input);
+    ~dynamic_pool();
     template <std::size_t Sz, typename Func, typename ... Args>
     auto enqueue(Func&& f, Args&& ... args) -> std::future<typename std::result_of<Func(Args...)>::type>;
     template <typename Func, typename ... Args>
@@ -63,26 +63,26 @@ private:
 
 // Implementation
     // Init :)
-inline dpool::dpool(std::size_t max_sz, std::size_t max_idle_sz)
+inline dynamic_pool::dynamic_pool(std::size_t max_sz, std::size_t max_idle_sz)
 : m_max_size(max_sz), m_max_idle_size( max_idle_sz == no_input ? max_sz / 2 : max_idle_sz)
 {
     if(m_max_idle_size > m_max_size || m_max_size == 0)
         throw std::logic_error("Please make sure: max_idle_sz <= max_size && max_sz > 0\n");
 }
 
-inline void dpool::destroy_worker(thread_index index)
+inline void dynamic_pool::destroy_worker(thread_index index)
 {
     m_task_queue.emplace([this, index](){
         if(!m_shutdown)
         {
-            m_workers[index].join();
             std::lock_guard<std::mutex> lk(m_map_mu);
+            m_workers[index].join();
             m_workers.erase(index);
         }
     });
 }
 
-inline void dpool::make_worker()
+inline void dynamic_pool::make_worker()
 {
     auto thread = std::thread{[this](){
         while(true)
@@ -107,7 +107,7 @@ inline void dpool::make_worker()
     m_workers[thread.get_id()] = std::move(thread);
 }
 
-inline dpool::~dpool()
+inline dynamic_pool::~dynamic_pool()
 {
     m_shutdown = true;
     m_cv.notify_all();
@@ -115,7 +115,7 @@ inline dpool::~dpool()
 }
 
 template <std::size_t Sz, typename Func, typename ... Args>
-auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
+auto dynamic_pool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
     if(m_idle_num == 0)
@@ -125,7 +125,7 @@ auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::resu
 }
 
 template <typename Func, typename ... Args>
-auto dpool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
+auto dynamic_pool::enqueue(Func &&f, Args &&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
 {
     using return_type = typename std::result_of<Func(Args...)>::type;
     MAKE_TASK(

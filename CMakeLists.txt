@@ -1,7 +1,11 @@
-cmake_minimum_required(VERSION 3.5.1)
+cmake_minimum_required(VERSION 3.14)
 project(thread_pools)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
+
 include_directories(includes)
 
-add_executable(thread_pools benchmark.cpp includes/thread_pools.hpp includes/dynamic_pool.hpp includes/static_pool.hpp includes/default_pool.hpp includes/util.hpp)
+add_executable(${PROJECT_NAME} benchmark.cpp)
+
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} Threads::Threads)

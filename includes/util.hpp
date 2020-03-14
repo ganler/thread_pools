@@ -42,7 +42,7 @@
 #include <type_traits>
 #include <functional>
 
-namespace thread_pools
+namespace thread_pool
 {
 
 template <typename Type, typename Func, typename ... Args>
