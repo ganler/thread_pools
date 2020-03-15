@@ -24,15 +24,17 @@ int main() {
     // mission_sz = √proportion * total_amount
     // psize = √total_amount / proportion
 
+    using time_scale = std::milli;
+    using namespace std::chrono_literals;
+
     constexpr std::size_t psize = 1000;
-//    constexpr std::size_t mission_sz = 1;    // 10, 100, 1000, 10000, 100000
     constexpr std::size_t execute_time = 1; // milli.
     constexpr std::size_t scale = 6;
 
     std::array<std::vector<double>, 2> answers;
 
     auto bench = [&](std::size_t mission_sz){
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(1s);
 
         std::cout << ">>> Bench : mission size = " << mission_sz << '\n';
         {   // TEST for thread_pool::static_pool
@@ -46,7 +48,7 @@ int main() {
             std::cout << "[STATIC POOL TEST] "  << psize << " threads execute time: " << answers[0].back() << " ms\n";
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::this_thread::sleep_for(1s);
 
         {   // TEST for thread_pool::dynamic_pool
             auto beg = std::chrono::steady_clock::now();
