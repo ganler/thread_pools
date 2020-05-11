@@ -1,8 +1,8 @@
 # Thread Pool Library
 
 ![](https://img.shields.io/badge/language-c++-orange.svg) 
-![](https://img.shields.io/github/stars/ganler/thread_pool.svg?style=social)
-![](https://img.shields.io/github/languages/code-size/ganler/thread_pool.svg)
+![](https://img.shields.io/github/stars/ganler/thread_pools.svg?style=social)
+![](https://img.shields.io/github/languages/code-size/ganler/thread_pools.svg)
 
 > Note that I rewrite this library and removed all thread containers(use detached threads instead). Hence, `default_pool`(in old version) is no longer needed.
 
