@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-#include "util.h"
+#include "util.hpp"
 
 namespace thread_pool {
 
@@ -57,7 +57,7 @@ private:
 
 // Implementation:
 template<typename Func, typename... Args>
-auto static_pool::enqueue(Func &&f, Args &&... args)
+inline auto static_pool::enqueue(Func &&f, Args &&... args)
 -> std::future<typename std::result_of<Func(Args...)>::type> {
     using return_type = typename std::result_of<Func(Args...)>::type;
     std::packaged_task<return_type()> *task = nullptr;
@@ -76,9 +76,9 @@ auto static_pool::enqueue(Func &&f, Args &&... args)
     return result;
 }
 
-static_pool::static_pool(std::size_t sz)
+inline static_pool::static_pool(std::size_t sz)
         : m_shared_src(std::make_shared<pool_src>()), size(sz) {
-    for (int i = 0; i < sz; ++i) {
+    for (std::size_t i = 0; i < sz; ++i) {
         std::thread(
                 [this](std::shared_ptr<pool_src> ptr) {
                     while (true) {
@@ -104,13 +104,13 @@ static_pool::static_pool(std::size_t sz)
     }
 }
 
-void static_pool::wait() {
+inline void static_pool::wait() {
     std::unique_lock<std::mutex> lock(m_shared_src->wait_mu);
     m_shared_src->wait_cv.wait(
             lock, [this] { return m_shared_src->to_finish.load() == 0; });
 }
 
-static_pool::~static_pool() {
+inline static_pool::~static_pool() {
     m_shared_src->shutdown = true;
     std::atomic_signal_fence(std::memory_order_seq_cst);
     m_shared_src->cv.notify_all();
